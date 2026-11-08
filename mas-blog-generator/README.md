@@ -53,6 +53,20 @@ A missing or invalid key finishes as `FAILED`, with Google's error in `result`. 
 docker compose logs -f celery_worker
 ```
 
+## Track runs in a browser
+
+A local page lists every run with its status and opens the article and image. It lives in `../mas-ui`, outside the Docker build.
+
+```powershell
+cd ..\mas-ui
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. It shows runs started since the tab opened and refreshes every 3 seconds. "Show all runs" includes older runs and runs started from Postman. "New session" resets the start time.
+
+The page reads `GET /tasks`. Point it at another API with `VITE_API_URL` in `mas-ui/.env.local`, and add that page's origin to the API's `CORS_ORIGINS` environment variable.
+
 ## After changes
 
 | Change | Command |

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAS Agent Runs</title>
+  </head>
+  <body>
+    <header class="bar">
+      <div>
+        <h1>Agent runs</h1>
+        <p class="muted" id="session-label"></p>
+      </div>
+      <div class="bar-actions">
+        <label class="toggle">
+          <input type="checkbox" id="show-all" />
+          Show all runs
+        </label>
+        <button type="button" class="ghost" id="new-session">New session</button>
+      </div>
+    </header>
+
+    <main>
+      <form id="trigger" class="trigger">
+        <input id="topic" name="topic" placeholder="Blog topic, e.g. Quantum AI Agents" autocomplete="off" required />
+        <button type="submit" id="trigger-btn">Start run</button>
+      </form>
+
+      <section class="summary" id="summary"></section>
+      <p class="error" id="error" hidden></p>
+
+      <ul class="runs" id="runs"></ul>
+      <p class="muted empty" id="empty" hidden>No runs in this session yet.</p>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import os
+from datetime import datetime
 
-from sqlalchemy import String, Text, create_engine
+from sqlalchemy import DateTime, String, Text, create_engine, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 DATABASE_URL = os.getenv(
@@ -23,10 +24,27 @@ class TaskLog(Base):
     # PENDING, PROCESSING, COMPLETED, FAILED
     status: Mapped[str] = mapped_column(String, default="PENDING")
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
 
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    # create_all does not add columns to a table that already exists.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE task_logs ADD COLUMN IF NOT EXISTS"
+                " created_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_task_logs_created_at"
+                " ON task_logs (created_at)"
+            )
+        )
 
 
 def get_db():

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -16,3 +18,4 @@ class TaskStatusResponse(BaseModel):
     topic: str
     status: str
     result: str | None = None
+    created_at: datetime
