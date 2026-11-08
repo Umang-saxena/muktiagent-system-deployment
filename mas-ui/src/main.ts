@@ -1,9 +1,10 @@
 import "./style.css";
-import { API_URL, listTasks, startRun, type Task, type TaskStatus } from "./api";
+import { API_URL, cancelRun, listTasks, startRun, type Task, type TaskStatus } from "./api";
 
 const POLL_MS = 3000;
 const SESSION_KEY = "mas-session-started-at";
-const STATUSES: TaskStatus[] = ["PENDING", "PROCESSING", "COMPLETED", "FAILED"];
+const STATUSES: TaskStatus[] = ["PENDING", "PROCESSING", "CANCELLING", "CANCELLED", "COMPLETED", "FAILED"];
+const CANCELLABLE: TaskStatus[] = ["PENDING", "PROCESSING", "CANCELLING"];
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const runsEl = $<HTMLUListElement>("runs");
@@ -20,6 +21,7 @@ interface Row {
   el: HTMLLIElement;
   status: HTMLSpanElement;
   age: HTMLSpanElement;
+  cancel: HTMLButtonElement;
   body: HTMLDivElement;
   renderedResult: string | null | undefined;
   task: Task;
@@ -58,7 +60,7 @@ function formatDuration(ms: number): string {
 function ageText(task: Task): string {
   const created = new Date(task.created_at);
   const time = created.toLocaleTimeString();
-  if (task.status === "PENDING" || task.status === "PROCESSING") {
+  if (CANCELLABLE.includes(task.status)) {
     return `${time} · ${formatDuration(Date.now() - created.getTime())} so far`;
   }
   return time;
@@ -80,11 +82,16 @@ function renderBody(row: Row): void {
   body.append(meta);
 
   if (!task.result) {
-    body.append(el("p", "muted", task.status === "PENDING" ? "Waiting for a worker…" : "Agents are working…"));
+    const text =
+      task.status === "CANCELLED" ? "This run was cancelled."
+      : task.status === "CANCELLING" ? "Stopping the agents…"
+      : task.status === "PENDING" ? "Waiting for a worker…"
+      : "Agents are working…";
+    body.append(el("p", "muted", text));
     return;
   }
 
-  if (task.status === "FAILED") {
+  if (task.status === "FAILED" || task.status === "CANCELLED") {
     body.append(el("pre", "failure", task.result));
     return;
   }
@@ -113,10 +120,24 @@ function createRow(task: Task): Row {
   const topic = el("span", "topic", task.topic);
   const age = el("span", "age muted");
   head.append(status, topic, age);
+  const cancel = el("button", "cancel", "Cancel");
+  cancel.type = "button";
+  const top = el("div", "run-top");
+  top.append(head, cancel);
   const body = el("div", "run-body");
-  li.append(head, body);
+  li.append(top, body);
 
-  const row: Row = { el: li, status, age, body, renderedResult: undefined, task };
+  const row: Row = { el: li, status, age, cancel, body, renderedResult: undefined, task };
+  cancel.addEventListener("click", async () => {
+    cancel.disabled = true;
+    try {
+      updateRow(row, await cancelRun(row.task.task_id));
+      showError(null);
+    } catch (err) {
+      showError(`Could not cancel the run: ${(err as Error).message}`);
+    }
+    void refresh();
+  });
   head.addEventListener("click", () => {
     if (expanded.has(task.task_id)) expanded.delete(task.task_id);
     else expanded.add(task.task_id);
@@ -131,6 +152,9 @@ function updateRow(row: Row, task: Task): void {
   row.status.dataset.status = task.status;
   row.el.dataset.status = task.status;
   row.age.textContent = ageText(task);
+  row.cancel.hidden = !CANCELLABLE.includes(task.status);
+  row.cancel.disabled = task.status === "CANCELLING";
+  row.cancel.textContent = task.status === "CANCELLING" ? "Cancelling…" : "Cancel";
 
   const open = expanded.has(task.task_id);
   row.el.classList.toggle("open", open);

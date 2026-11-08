@@ -1,4 +1,10 @@
-export type TaskStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+export type TaskStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "CANCELLING"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "FAILED";
 
 export interface Task {
   task_id: string;
@@ -23,6 +29,10 @@ export function listTasks(since: string | null): Promise<Task[]> {
   const params = new URLSearchParams({ limit: "200" });
   if (since) params.set("since", since);
   return request<Task[]>(`/tasks?${params}`);
+}
+
+export function cancelRun(taskId: string): Promise<Task> {
+  return request(`/task/${encodeURIComponent(taskId)}/cancel`, { method: "POST" });
 }
 
 export function startRun(topic: string): Promise<{ task_id: string }> {

@@ -9,6 +9,7 @@
   --processing: #f2c14e;
   --completed: #4cc38a;
   --failed: #f2555a;
+  --cancelled: #7a8194;
   color-scheme: dark;
   font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 15px;
@@ -163,10 +164,38 @@ button.ghost {
   border-left-color: var(--failed);
 }
 
+.run[data-status="CANCELLING"] {
+  border-left-color: var(--processing);
+}
+
+.run[data-status="CANCELLED"] {
+  border-left-color: var(--cancelled);
+}
+
+.run-top {
+  display: flex;
+  align-items: center;
+}
+
+.run-top .cancel {
+  flex: none;
+  margin-right: 1rem;
+  padding: 0.3rem 0.8rem;
+  background: transparent;
+  color: var(--failed);
+  border-color: var(--failed);
+}
+
+.run-top .cancel[hidden] {
+  display: none;
+}
+
 .run-head {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: 7.5rem 1fr auto;
+  grid-template-columns: 8.5rem 1fr auto;
   align-items: center;
   gap: 0.8rem;
   background: none;
@@ -216,6 +245,15 @@ button.ghost {
 
 .badge[data-status="FAILED"] {
   background: var(--failed);
+}
+
+.badge[data-status="CANCELLING"] {
+  background: var(--processing);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.badge[data-status="CANCELLED"] {
+  background: var(--cancelled);
 }
 
 @keyframes pulse {
