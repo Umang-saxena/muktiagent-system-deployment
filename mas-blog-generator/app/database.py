@@ -21,7 +21,7 @@ class TaskLog(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)  # Celery task ID
     topic: Mapped[str] = mapped_column(String, index=True)
-    # PENDING, PROCESSING, COMPLETED, FAILED
+    # PENDING, PROCESSING, COMPLETED, FAILED, CANCELLING, CANCELLED
     status: Mapped[str] = mapped_column(String, default="PENDING")
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

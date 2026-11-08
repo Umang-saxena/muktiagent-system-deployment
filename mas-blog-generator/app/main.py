@@ -7,10 +7,10 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.celery_app import run_agent_workflow
+from app.celery_app import celery_app, is_alive, run_agent_workflow
 from app.database import TaskLog, get_db, init_db
 from app.schemas import BlogRequest, TaskCreateResponse, TaskStatusResponse
 
@@ -22,6 +22,7 @@ CORS_ORIGINS = [
     for o in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
     if o.strip()
 ]
+FINISHED_STATES = ("COMPLETED", "FAILED", "CANCELLED")
 
 
 @asynccontextmanager
@@ -92,3 +93,42 @@ def get_task_status(task_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return _to_status(db_task)
+
+
+@app.post("/task/{task_id}/cancel", response_model=TaskStatusResponse)
+def cancel_task(task_id: str, db: Session = Depends(get_db)):
+    db_task = db.get(TaskLog, task_id)
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if db_task.status in FINISHED_STATES:
+        raise HTTPException(
+            status_code=409, detail=f"Task already finished ({db_task.status})"
+        )
+
+    status = db_task.status
+    if status == "PENDING":
+        if _transition(db, task_id, "CANCELLED", from_status="PENDING"):
+            celery_app.control.revoke(task_id)
+        else:
+            # A worker picked the run up in the meantime.
+            db.expire_all()
+            status = db.get(TaskLog, task_id).status
+
+    if status in ("PROCESSING", "CANCELLING"):
+        # Without a heartbeat no worker owns the run (e.g. it was restarted),
+        # so nobody would ever acknowledge a cooperative cancel.
+        target = "CANCELLING" if is_alive(task_id) else "CANCELLED"
+        _transition(db, task_id, target, from_status=status)
+
+    db.expire_all()
+    return _to_status(db.get(TaskLog, task_id))
+
+
+def _transition(db: Session, task_id: str, status: str, from_status: str) -> bool:
+    updated = db.execute(
+        update(TaskLog)
+        .where(TaskLog.id == task_id, TaskLog.status == from_status)
+        .values(status=status)
+    ).rowcount
+    db.commit()
+    return updated > 0

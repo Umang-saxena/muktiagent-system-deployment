@@ -4,4 +4,4 @@ celery==5.5.2
 redis==5.2.1
 psycopg2-binary==2.9.10
 sqlalchemy==2.0.41
-crewai[google-genai]==1.15.37
+crewai==1.15.37
