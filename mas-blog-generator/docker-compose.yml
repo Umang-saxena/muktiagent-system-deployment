@@ -1,0 +1,66 @@
+x-app-env: &app-env
+  DATABASE_URL: postgresql://postgres:password@db:5432/mas_db
+  REDIS_URL: redis://redis:6379/0
+  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+  GEMINI_IMAGE_MODEL: ${GEMINI_IMAGE_MODEL:-gemini-nano-banana-2.1}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+  OTEL_SDK_DISABLED: "true"
+
+x-app-depends: &app-depends
+  db:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: mas_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mas_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mas_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mas_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: mas_fastapi
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment: *app-env
+    depends_on: *app-depends
+
+  celery_worker:
+    build: .
+    container_name: mas_celery
+    command: celery -A app.celery_app.celery_app worker --loglevel=info --pool=solo
+    volumes:
+      - .:/app
+    environment: *app-env
+    depends_on: *app-depends
+
+volumes:
+  postgres_data:

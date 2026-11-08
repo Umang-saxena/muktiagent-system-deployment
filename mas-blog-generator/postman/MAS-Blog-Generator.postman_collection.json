@@ -1,0 +1,131 @@
+{
+  "info": {
+    "name": "MAS Blog Generator",
+    "description": "Generate a blog with the local MAS Blog Generator API.\n\n1. Start the stack (`docker compose up --build -d`).\n2. Send **Generate Blog**. The test script stores `taskId`.\n3. Send **Get Task Status** again until `status` is `COMPLETED` or `FAILED`.\n\nA completed `result` ends with an `Image URL` you can open in a browser.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Generate Blog",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('blog generation was queued', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.task_id).to.be.a('string').and.not.empty;",
+              "    pm.expect(body.status).to.eql('PENDING');",
+              "    pm.collectionVariables.set('taskId', body.task_id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topic\": \"Quantum AI Agents\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/generate-blog",
+        "description": "Queues a CrewAI blog job and returns its task id. Change `topic` before sending."
+      },
+      "response": [
+        {
+          "name": "Queued",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Quantum AI Agents\"\n}"
+            },
+            "url": "{{baseUrl}}/generate-blog"
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"task_id\": \"6da6e92a-2c81-40d3-bf40-84e355536818\",\n  \"status\": \"PENDING\",\n  \"message\": \"Agent workflow started in the background.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Task Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('task exists', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.task_id).to.eql(pm.collectionVariables.get('taskId'));",
+              "    pm.expect(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']).to.include(body.status);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/task/{{taskId}}",
+        "description": "Uses the `taskId` saved by Generate Blog. Send again until status is COMPLETED or FAILED. COMPLETED `result` includes the article and an Image URL."
+      },
+      "response": [
+        {
+          "name": "Completed",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/task/{{taskId}}"
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"task_id\": \"6da6e92a-2c81-40d3-bf40-84e355536818\",\n  \"topic\": \"Quantum AI Agents\",\n  \"status\": \"COMPLETED\",\n  \"result\": \"Three paragraphs of the finished article.\\n\\nImage URL: http://localhost:8000/static/images/blog_example.png\"\n}"
+        }
+      ]
+    }
+  ]
+}
